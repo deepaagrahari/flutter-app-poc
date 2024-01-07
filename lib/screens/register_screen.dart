@@ -1,5 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
-import 'package:my_app/utils/helpers/snackbar_helper.dart';
+
+import 'package:my_app/main.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../components/app_text_form_field.dart';
 import '../utils/common_widgets/gradient_background.dart';
@@ -9,6 +13,7 @@ import '../values/app_regex.dart';
 import '../values/app_routes.dart';
 import '../values/app_strings.dart';
 import '../values/app_theme.dart';
+import 'dart:developer';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -28,6 +33,42 @@ class _RegisterPageState extends State<RegisterPage> {
   final ValueNotifier<bool> passwordNotifier = ValueNotifier(true);
   final ValueNotifier<bool> confirmPasswordNotifier = ValueNotifier(true);
   final ValueNotifier<bool> fieldValidNotifier = ValueNotifier(false);
+
+  bool _isLoading = false;
+  Future<void> _signUp() async {
+    log('inside _signUp:');
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      await supabase.auth.signUp(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.registrationComplete)),
+        );
+        emailController.clear();
+        passwordController.clear();
+      }
+    } on AuthException catch (error) {
+      log('inside exception _signUp: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to register!')),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to register!')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   void initializeControllers() {
     nameController = TextEditingController()..addListener(controllerListener);
@@ -221,10 +262,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     builder: (_, isValid, __) {
                       return FilledButton(
                         onPressed: isValid
-                            ? () {
-                                SnackbarHelper.showSnackBar(
-                                  AppStrings.registrationComplete,
-                                );
+                            ? () async {
+                                _isLoading ? null : await _signUp();
                                 nameController.clear();
                                 emailController.clear();
                                 passwordController.clear();

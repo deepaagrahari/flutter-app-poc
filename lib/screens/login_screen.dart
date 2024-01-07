@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:my_app/main.dart';
 import 'package:my_app/utils/helpers/snackbar_helper.dart';
 import 'package:my_app/values/app_regex.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../components/app_text_form_field.dart';
-import '../resources/resources.dart';
 import '../utils/common_widgets/gradient_background.dart';
 import '../utils/helpers/navigation_helper.dart';
 import '../values/app_constants.dart';
 import '../values/app_routes.dart';
 import '../values/app_strings.dart';
 import '../values/app_theme.dart';
+import 'dart:developer';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,12 +22,54 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
 
   final ValueNotifier<bool> passwordNotifier = ValueNotifier(true);
   final ValueNotifier<bool> fieldValidNotifier = ValueNotifier(false);
 
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
+
+  Future<void> _signIn() async {
+    log('inside _signIn:');
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      await supabase.auth.signInWithPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+      if (mounted) {
+        log('inside if _signIn:');
+        SnackbarHelper.showSnackBar(
+          AppStrings.loggedIn,
+        );
+        emailController.clear();
+        passwordController.clear();
+      } else {
+        log('inside else _signIn:');
+        SnackbarHelper.showSnackBar(
+          AppStrings.loggedIn,
+        );
+      }
+    } on AuthException catch (error) {
+      log('inside exception _signIn: $error');
+      SnackbarHelper.showSnackBar(
+        error.message,
+      );
+    } catch (error) {
+      SnackbarHelper.showSnackBar(
+        AppStrings.userNamePasswordNotMatch,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   void initializeControllers() {
     emailController = TextEditingController()..addListener(controllerListener);
@@ -147,10 +190,8 @@ class _LoginPageState extends State<LoginPage> {
                     builder: (_, isValid, __) {
                       return FilledButton(
                         onPressed: isValid
-                            ? () {
-                                SnackbarHelper.showSnackBar(
-                                  AppStrings.loggedIn,
-                                );
+                            ? () async {
+                                _isLoading ? null : await _signIn();
                                 emailController.clear();
                                 passwordController.clear();
                               }
